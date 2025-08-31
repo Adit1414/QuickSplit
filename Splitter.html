@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Split - Expense Splitter</title>
+    <style>
+        :root {
+            --primary-color: #2E7D32; /* A deeper green */
+            --primary-light: #4CAF50;
+            --secondary-color: #FFC107;
+            --background-color: #f7f8fc;
+            --card-background: #ffffff;
+            --text-color: #333;
+            --light-text-color: #666;
+            --border-color: #e0e0e0;
+            --danger-color: #d32f2f;
+            --danger-light: #f44336;
+        }
+
+        /* Basic Reset & Mobile Optimizations */
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent; /* Removes blue tap highlight on mobile */
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 15px;
+            font-size: 16px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr; /* Mobile first: single column */
+            gap: 20px;
+        }
+
+        /* Desktop Layout */
+        @media (min-width: 768px) {
+            .container {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        
+        h1, h2 {
+            color: var(--primary-color);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-top: 0;
+            font-size: 1.5em;
+        }
+
+        h1 {
+            font-size: 1.8em;
+        }
+
+        .card {
+            background-color: var(--card-background);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .full-width {
+            grid-column: 1 / -1;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        input[type="text"], input[type="number"], select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1em;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.2);
+        }
+
+        button {
+            background-color: var(--primary-light);
+            color: white;
+            border: none;
+            padding: 14px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: background-color 0.2s ease, transform 0.1s ease;
+        }
+        
+        button:hover {
+            background-color: var(--primary-color);
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+        
+        button.danger {
+            background-color: var(--danger-light);
+            font-size: 0.8em;
+            padding: 5px 10px;
+        }
+        
+        button.danger:hover {
+            background-color: var(--danger-color);
+        }
+        
+        button.secondary {
+            background-color: #757575;
+        }
+        button.secondary:hover {
+            background-color: #616161;
+        }
+
+        #participants-list li, #expenses-list li, #friends-list li {
+            background: #fafafa;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .friend-buttons {
+            display: flex;
+            gap: 5px;
+        }
+
+        .friend-buttons button {
+            padding: 5px 10px;
+            font-size: 0.8em;
+        }
+
+        .friend-buttons button.add:disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
+        }
+        
+        .expense-info {
+            font-size: 0.9em;
+            color: var(--light-text-color);
+        }
+
+        #unequal-split-container {
+            display: none;
+            background-color: #f9f9f9;
+            border: 1px dashed var(--border-color);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        #settlement-summary li {
+            background: #e8f5e9;
+            padding: 14px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            list-style: none;
+        }
+        
+        /* Custom Confirmation Modal */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex; justify-content: center; align-items: center;
+            z-index: 1000; opacity: 0; visibility: hidden;
+            transition: opacity 0.2s ease, visibility 0.2s ease;
+        }
+        .modal-overlay.active { opacity: 1; visibility: visible; }
+        .modal-content {
+            background: white; padding: 25px; border-radius: 12px;
+            width: 90%; max-width: 400px; text-align: center;
+            transform: scale(0.95); transition: transform 0.2s ease;
+        }
+        .modal-overlay.active .modal-content { transform: scale(1); }
+        .modal-buttons { margin-top: 20px; display: flex; gap: 10px; justify-content: center; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="card full-width">
+            <h1>Quick Split</h1>
+            <p>A simple, offline tool to split expenses. All data is saved securely in this browser only.</p>
+        </div>
+
+        <div class="card">
+            <h2>1. My Friends List</h2>
+            <p>Add friends here to quickly select them for any group. This list is saved permanently.</p>
+            <div class="input-group">
+                <input type="text" id="friend-name-input" placeholder="Enter friend's name">
+            </div>
+            <button onclick="addFriend()">Save Friend</button>
+            <ul id="friends-list"></ul>
+        </div>
+        
+        <div class="card">
+            <h2>2. Current Group</h2>
+            <p>Participants for this split. Add people from your friends list.</p>
+            <ul id="participants-list"></ul>
+        </div>
+        
+        <div class="card full-width">
+            <h2>3. Add Expense</h2>
+            <form id="expense-form" onsubmit="addExpense(event)">
+                 <div class="input-group">
+                    <label for="description">Description</label>
+                    <input type="text" id="description" placeholder="e.g., Dinner, Groceries" required>
+                </div>
+                <div class="input-group">
+                    <label for="amount">Total Amount ($)</label>
+                    <input type="number" id="amount" placeholder="e.g., 100.00" required min="0.01" step="0.01">
+                </div>
+                <div class="input-group">
+                    <label for="paid-by">Paid By</label>
+                    <select id="paid-by" required></select>
+                </div>
+                <div class="input-group">
+                    <label>How to split?</label>
+                    <div class="split-method-group">
+                        <label><input type="radio" name="split-method" value="equally" checked onchange="toggleUnequalSplit()"> Equally</label>
+                        <label><input type="radio" name="split-method" value="unequally" onchange="toggleUnequalSplit()"> Unequally</label>
+                    </div>
+                </div>
+                <div id="unequal-split-container">
+                    <p>Enter the amount each person is responsible for:</p>
+                    <div id="unequal-split-inputs"></div>
+                    <div id="unequal-split-total">Total: $0.00 / $0.00</div>
+                </div>
+                <button type="submit">Add Expense</button>
+            </form>
+        </div>
+
+        <div class="card full-width">
+            <h2>4. Expenses Log</h2>
+            <ul id="expenses-list"></ul>
+        </div>
+
+        <div class="card full-width">
+            <h2>5. Final Summary</h2>
+            <p>Here's the simplest way for everyone to settle up:</p>
+            <ul id="settlement-summary"></ul>
+        </div>
+        
+        <div class="card full-width">
+            <h2>Settings</h2>
+            <p>This will permanently delete the current group and expenses. Your friends list will not be affected.</p>
+            <button class="danger" onclick="confirmClearGroupData()">Clear Group Data</button>
+        </div>
+    </div>
+    
+    <!-- Confirmation Modal HTML -->
+    <div class="modal-overlay" id="confirmation-modal">
+        <div class="modal-content">
+            <p id="modal-text">Are you sure?</p>
+            <div class="modal-buttons">
+                <button class="secondary" id="modal-cancel">Cancel</button>
+                <button class="danger" id="modal-confirm">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+
+    <script>
+        let friends = [];
+        let participants = [];
+        let expenses = [];
+        let onConfirmCallback = null;
+
+        // --- Core Application Logic ---
+        
+        function initializeApp() {
+            const savedFriends = localStorage.getItem('quickSplitFriends');
+            const savedParticipants = localStorage.getItem('quickSplitParticipants');
+            const savedExpenses = localStorage.getItem('quickSplitExpenses');
+            
+            if (savedFriends) friends = JSON.parse(savedFriends);
+            if (savedParticipants) participants = JSON.parse(savedParticipants);
+            if (savedExpenses) expenses = JSON.parse(savedExpenses);
+            
+            setupModalListeners();
+            updateAllUI();
+        }
+
+        function saveFriends() {
+            localStorage.setItem('quickSplitFriends', JSON.stringify(friends));
+        }
+
+        function saveData() {
+            localStorage.setItem('quickSplitParticipants', JSON.stringify(participants));
+            localStorage.setItem('quickSplitExpenses', JSON.stringify(expenses));
+        }
+
+        function updateAllUI() {
+            renderFriendsList();
+            renderParticipants();
+            renderPaidByDropdown();
+            renderExpenses();
+            calculateAndRenderSummary();
+            renderUnequalSplitInputs();
+        }
+
+        // --- Friend Management ---
+
+        function addFriend() {
+            const nameInput = document.getElementById('friend-name-input');
+            const name = nameInput.value.trim();
+            if (name && !friends.includes(name)) {
+                friends.push(name);
+                nameInput.value = '';
+                saveFriends();
+                renderFriendsList();
+            } else if (friends.includes(name)) {
+                alert('This friend is already in your list!');
+            }
+        }
+
+        function removeFriend(index) {
+            const friendToRemove = friends[index];
+            if (participants.includes(friendToRemove)) {
+                alert(`Please remove ${friendToRemove} from the current group before deleting them permanently.`);
+                return;
+            }
+            showConfirmationModal(`Are you sure you want to permanently delete ${friendToRemove} from your friends list?`, () => {
+                friends.splice(index, 1);
+                saveFriends();
+                renderFriendsList();
+            });
+        }
+        
+        // --- Participant (Current Group) Management ---
+
+        function addParticipantFromFriends(name) {
+            if (!participants.includes(name)) {
+                participants.push(name);
+                saveData();
+                updateAllUI();
+            }
+        }
+        
+        function removeParticipant(index) {
+            showConfirmationModal(`Are you sure you want to remove ${participants[index]} from the current group?`, () => {
+                const participantToRemove = participants[index];
+                const isParticipantInvolved = expenses.some(exp => 
+                    exp.paidBy === participantToRemove || exp.splits.some(s => s.name === participantToRemove)
+                );
+                if (isParticipantInvolved) {
+                    alert(`Cannot remove ${participantToRemove} because they are part of an existing expense. Please remove the related expenses first.`);
+                    return;
+                }
+                participants.splice(index, 1);
+                saveData();
+                updateAllUI();
+            });
+        }
+        
+        // --- Expense Management ---
+        
+        function addExpense(event) {
+            event.preventDefault();
+            if (participants.length < 2) {
+                alert("Please add at least two participants to the group before adding an expense.");
+                return;
+            }
+            const description = document.getElementById('description').value;
+            const amount = parseFloat(document.getElementById('amount').value);
+            const paidBy = document.getElementById('paid-by').value;
+            const splitMethod = document.querySelector('input[name="split-method"]:checked').value;
+            let splits = [];
+
+            if (splitMethod === 'equally') {
+                const share = amount / participants.length;
+                participants.forEach(p => splits.push({ name: p, amount: share }));
+            } else {
+                const unequalInputs = document.querySelectorAll('#unequal-split-inputs input');
+                let totalSplitAmount = 0;
+                unequalInputs.forEach(input => {
+                    const splitAmount = parseFloat(input.value) || 0;
+                    splits.push({ name: input.dataset.name, amount: splitAmount });
+                    totalSplitAmount += splitAmount;
+                });
+                if (Math.abs(totalSplitAmount - amount) > 0.01) {
+                    alert(`The sum of the splits ($${totalSplitAmount.toFixed(2)}) does not match the total amount ($${amount.toFixed(2)}).`);
+                    return;
+                }
+            }
+            
+            const newExpense = { id: Date.now(), description, amount, paidBy, splits };
+            expenses.push(newExpense);
+            document.getElementById('expense-form').reset();
+            toggleUnequalSplit();
+            saveData();
+            updateAllUI();
+        }
+
+        function removeExpense(id) {
+            const expenseToRemove = expenses.find(exp => exp.id === id);
+            showConfirmationModal(`Are you sure you want to delete the "${expenseToRemove.description}" expense?`, () => {
+                expenses = expenses.filter(exp => exp.id !== id);
+                saveData();
+                updateAllUI();
+            });
+        }
+        
+        // --- Settings ---
+        
+        function confirmClearGroupData() {
+            showConfirmationModal('This will clear the current group and all expenses. Your friends list will not be affected. Continue?', () => {
+                participants = [];
+                expenses = [];
+                saveData();
+                updateAllUI();
+            });
+        }
+
+        // --- UI Rendering ---
+
+        function renderFriendsList() {
+            const list = document.getElementById('friends-list');
+            list.innerHTML = '';
+            if (friends.length === 0) {
+                list.innerHTML = '<li>No friends saved yet.</li>';
+                return;
+            }
+            friends.forEach((name, index) => {
+                const li = document.createElement('li');
+                const isAdded = participants.includes(name);
+                li.innerHTML = `
+                    <span>${name}</span>
+                    <div class="friend-buttons">
+                        <button class="add" onclick="addParticipantFromFriends('${name}')" ${isAdded ? 'disabled' : ''}>${isAdded ? 'Added' : 'Add'}</button>
+                        <button class="danger" onclick="removeFriend(${index})">Delete</button>
+                    </div>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function renderParticipants() {
+            const list = document.getElementById('participants-list');
+            list.innerHTML = '';
+            if (participants.length === 0) {
+                list.innerHTML = '<li>No one in the group yet.</li>';
+                return;
+            }
+            participants.forEach((name, index) => {
+                const li = document.createElement('li');
+                li.innerHTML = `<span>${name}</span> <button class="danger" onclick="removeParticipant(${index})">Remove</button>`;
+                list.appendChild(li);
+            });
+        }
+
+        function renderPaidByDropdown() {
+            const select = document.getElementById('paid-by');
+            select.innerHTML = '';
+            if (participants.length === 0) {
+                const option = document.createElement('option');
+                option.textContent = 'Add participants to group';
+                option.disabled = true;
+                select.appendChild(option);
+            } else {
+                participants.forEach(name => {
+                    const option = document.createElement('option');
+                    option.value = name;
+                    option.textContent = name;
+                    select.appendChild(option);
+                });
+            }
+        }
+
+        function renderExpenses() {
+            const list = document.getElementById('expenses-list');
+            list.innerHTML = '';
+             if (expenses.length === 0) {
+                list.innerHTML = '<li>No expenses logged yet.</li>';
+                return;
+            }
+            expenses.slice().reverse().forEach(exp => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <div class="expense-details">
+                        <div class="expense-description"><b>${exp.description}</b></div>
+                        <div class="expense-info">$${exp.amount.toFixed(2)} paid by ${exp.paidBy}</div>
+                    </div>
+                    <button class="danger" onclick="removeExpense(${exp.id})">Delete</button>
+                `;
+                list.appendChild(li);
+            });
+        }
+
+        function toggleUnequalSplit() {
+            const container = document.getElementById('unequal-split-container');
+            if (document.querySelector('input[name="split-method"]:checked').value === 'unequally') {
+                container.style.display = 'block';
+                renderUnequalSplitInputs();
+            } else {
+                container.style.display = 'none';
+            }
+        }
+
+        function renderUnequalSplitInputs() {
+            const container = document.getElementById('unequal-split-inputs');
+            container.innerHTML = '';
+            participants.forEach(name => {
+                const row = document.createElement('div');
+                row.className = 'unequal-split-row';
+                row.innerHTML = `
+                    <label for="unequal-${name}">${name}</label>
+                    <input type="number" id="unequal-${name}" data-name="${name}" min="0" step="0.01" placeholder="0.00" oninput="updateUnequalSplitTotal()">
+                `;
+                container.appendChild(row);
+            });
+            updateUnequalSplitTotal();
+        }
+
+        function updateUnequalSplitTotal() {
+            const totalAmount = parseFloat(document.getElementById('amount').value) || 0;
+            const inputs = document.querySelectorAll('#unequal-split-inputs input');
+            let currentSplitTotal = 0;
+            inputs.forEach(input => {
+                currentSplitTotal += parseFloat(input.value) || 0;
+            });
+            
+            const totalDiv = document.getElementById('unequal-split-total');
+            totalDiv.textContent = `Total: $${currentSplitTotal.toFixed(2)} / $${totalAmount.toFixed(2)}`;
+            if (Math.abs(currentSplitTotal - totalAmount) > 0.01) {
+                totalDiv.style.color = 'var(--danger-color)';
+            } else {
+                totalDiv.style.color = 'var(--primary-color)';
+            }
+        }
+
+        function calculateAndRenderSummary() {
+            const balances = {};
+            participants.forEach(p => balances[p] = 0);
+
+            expenses.forEach(exp => {
+                balances[exp.paidBy] += exp.amount;
+                exp.splits.forEach(split => {
+                    if (balances.hasOwnProperty(split.name)) {
+                        balances[split.name] -= split.amount;
+                    }
+                });
+            });
+
+            const debtors = [];
+            const creditors = [];
+
+            for (const person in balances) {
+                if (balances[person] > 0.01) {
+                    creditors.push({ name: person, amount: balances[person] });
+                } else if (balances[person] < -0.01) {
+                    debtors.push({ name: person, amount: -balances[person] });
+                }
+            }
+            
+            debtors.sort((a, b) => a.amount - b.amount);
+            creditors.sort((a, b) => a.amount - b.amount);
+
+            const transactions = [];
+            while (debtors.length > 0 && creditors.length > 0) {
+                const debtor = debtors[0];
+                const creditor = creditors[0];
+                const amount = Math.min(debtor.amount, creditor.amount);
+
+                transactions.push({ from: debtor.name, to: creditor.name, amount: amount });
+
+                debtor.amount -= amount;
+                creditor.amount -= amount;
+
+                if (debtor.amount < 0.01) debtors.shift();
+                if (creditor.amount < 0.01) creditors.shift();
+            }
+            
+            const summaryList = document.getElementById('settlement-summary');
+            summaryList.innerHTML = '';
+            if (transactions.length === 0) {
+                const li = document.createElement('li');
+                li.className = 'all-settled';
+                li.textContent = 'All settled up!';
+                summaryList.appendChild(li);
+            } else {
+                transactions.forEach(t => {
+                    const li = document.createElement('li');
+                    li.innerHTML = `<strong>${t.from}</strong> owes <strong>${t.to}</strong> &rarr; <strong>$${t.amount.toFixed(2)}</strong>`;
+                    summaryList.appendChild(li);
+                });
+            }
+        }
+
+        // --- Confirmation Modal Logic ---
+        function showConfirmationModal(message, callback) {
+            const modal = document.getElementById('confirmation-modal');
+            const modalText = document.getElementById('modal-text');
+            modalText.textContent = message;
+            onConfirmCallback = callback;
+            modal.classList.add('active');
+        }
+
+        function hideConfirmationModal() {
+            const modal = document.getElementById('confirmation-modal');
+            modal.classList.remove('active');
+            onConfirmCallback = null;
+        }
+
+        function setupModalListeners() {
+            const confirmBtn = document.getElementById('modal-confirm');
+            const cancelBtn = document.getElementById('modal-cancel');
+            const modalOverlay = document.getElementById('confirmation-modal');
+
+            confirmBtn.addEventListener('click', () => {
+                if (onConfirmCallback) onConfirmCallback();
+                hideConfirmationModal();
+            });
+
+            cancelBtn.addEventListener('click', hideConfirmationModal);
+            modalOverlay.addEventListener('click', (event) => {
+                if (event.target === modalOverlay) hideConfirmationModal();
+            });
+        }
+
+        document.getElementById('amount').addEventListener('input', updateUnequalSplitTotal);
+        document.addEventListener('DOMContentLoaded', initializeApp);
+    </script>
+</body>
+</html>
+
