@@ -40,32 +40,11 @@
         button:active { transform: scale(0.98); }
         button.danger { background-color: var(--danger-color); font-size: 0.8em; padding: 5px 10px; }
         #friends-list li { background: #fafafa; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
-        #expenses-list li { 
-            background: #fafafa; 
-            padding: 12px; 
-            border: 1px solid var(--border-color); 
-            border-radius: 8px; 
-            margin-bottom: 8px; 
-            display: flex; 
-            flex-direction: column;
-            transition: background-color 0.2s ease;
-            cursor: pointer;
-        }
-        #expenses-list li:hover {
-            background-color: #f5f5f5;
-        }
-        #expenses-list li.active {
-            background-color: #f0f0f0;
-        }
+        #expenses-list li { background: #fafafa; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 8px; display: flex; flex-direction: column; }
         .expense-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
         .expense-details b { font-size: 1.1em; }
         .expense-info { font-size: 0.9em; color: var(--light-text-color); }
         .expense-participants-list { font-size: 0.85em; color: #555; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-color); width: 100%;}
-        .expense-actions { display: flex; align-items: center; gap: 15px; }
-        .toggle-arrow { font-size: 1.2em; color: var(--light-text-color); transition: transform 0.3s ease; }
-        #expenses-list li.active .toggle-arrow { transform: rotate(180deg); }
-        .expense-breakdown { display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-color); }
-        .expense-breakdown p { margin: 4px 0; font-size: 0.9em; }
         #expense-participants-checkboxes { max-height: 150px; overflow-y: auto; background: #f9f9f9; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); }
         #expense-participants-checkboxes label { display: block; margin-bottom: 8px; }
         #settlement-summary li { background: #e8f5e9; padding: 14px; border-radius: 8px; margin-bottom: 10px; list-style: none; }
@@ -396,16 +375,6 @@
             });
         }
 
-        function toggleExpenseDetails(liElement) {
-            liElement.classList.toggle('active');
-            const breakdownDiv = liElement.querySelector('.expense-breakdown');
-            if (liElement.classList.contains('active')) {
-                breakdownDiv.style.display = 'block';
-            } else {
-                breakdownDiv.style.display = 'none';
-            }
-        }
-
         function renderExpenses() {
             const list = document.getElementById('expenses-list');
             list.innerHTML = '';
@@ -414,35 +383,16 @@
             }
             expenses.slice().reverse().forEach(exp => {
                 const li = document.createElement('li');
-                li.setAttribute('onclick', 'toggleExpenseDetails(this)');
-
-                let breakdownHTML = '';
-                const payer = exp.paidBy;
-                exp.splits.forEach(split => {
-                    if (split.name !== payer && split.amount > 0) {
-                        breakdownHTML += `<p><strong>${split.name}</strong> owes <strong>${payer}</strong> &rarr; <strong>$${split.amount.toFixed(2)}</strong></p>`;
-                    }
-                });
-                if (breakdownHTML === '') {
-                    breakdownHTML = '<p>The payer covered their own share or was the only participant.</p>';
-                }
-
                 li.innerHTML = `
                     <div class="expense-header">
                         <div class="expense-details">
                             <b>${exp.description}</b>
                             <div class="expense-info">$${exp.amount.toFixed(2)} paid by ${exp.paidBy}</div>
                         </div>
-                        <div class="expense-actions">
-                            <span class="toggle-arrow">▼</span>
-                            <button class="danger" onclick="event.stopPropagation(); removeExpense(${exp.id})">Delete</button>
-                        </div>
+                        <button class="danger" onclick="removeExpense(${exp.id})">Delete</button>
                     </div>
                     <div class="expense-participants-list">
                         Split between: ${exp.participants.join(', ')}
-                    </div>
-                    <div class="expense-breakdown">
-                        ${breakdownHTML}
                     </div>
                 `;
                 list.appendChild(li);
