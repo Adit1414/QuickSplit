@@ -182,11 +182,8 @@
 
         function initializeApp() {
             try {
-                // Load saved data
-                const savedFriends = localStorage.getItem('quickSplitFriends');
-                const savedExpenses = localStorage.getItem('quickSplitExpenses');
-                if (savedFriends) friends = JSON.parse(savedFriends);
-                if (savedExpenses) expenses = JSON.parse(savedExpenses);
+                // Load saved data with better error handling
+                loadSavedData();
                 
                 // Setup event listeners
                 setupEventListeners();
@@ -197,7 +194,41 @@
                 console.log('App initialized successfully', { friends, expenses });
             } catch (error) {
                 console.error('Error initializing app:', error);
-                alert('Error loading saved data. Starting fresh.');
+                // Don't show alert on every reload - just log and continue
+                console.log('Starting with fresh data');
+                friends = [];
+                expenses = [];
+                updateAllUI();
+            }
+        }
+
+        function loadSavedData() {
+            try {
+                const savedFriends = localStorage.getItem('quickSplitFriends');
+                if (savedFriends && savedFriends !== 'null' && savedFriends !== 'undefined') {
+                    const parsedFriends = JSON.parse(savedFriends);
+                    if (Array.isArray(parsedFriends)) {
+                        friends = parsedFriends;
+                    }
+                }
+            } catch (error) {
+                console.warn('Error loading friends data, clearing corrupted data:', error);
+                localStorage.removeItem('quickSplitFriends');
+                friends = [];
+            }
+
+            try {
+                const savedExpenses = localStorage.getItem('quickSplitExpenses');
+                if (savedExpenses && savedExpenses !== 'null' && savedExpenses !== 'undefined') {
+                    const parsedExpenses = JSON.parse(savedExpenses);
+                    if (Array.isArray(parsedExpenses)) {
+                        expenses = parsedExpenses;
+                    }
+                }
+            } catch (error) {
+                console.warn('Error loading expenses data, clearing corrupted data:', error);
+                localStorage.removeItem('quickSplitExpenses');
+                expenses = [];
             }
         }
 
