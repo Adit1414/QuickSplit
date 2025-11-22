@@ -49,6 +49,7 @@
         .expense-header { display: flex; justify-content: space-between; align-items: center; width: 100%; }
         .expense-details b { font-size: 1.1em; }
         .expense-info { font-size: 0.9em; color: var(--light-text-color); word-break: break-word; }
+        .expense-date { font-size: 0.8em; color: #888; margin-top: 4px; }
         .expense-participants-list { font-size: 0.85em; color: #555; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border-color); width: 100%;}
         .expense-actions { display: flex; align-items: center; gap: 15px; }
         .toggle-arrow { font-size: 1.2em; color: var(--light-text-color); transition: transform 0.3s ease; }
@@ -169,28 +170,19 @@
     </div>
 
     <script>
-        // Global variables
         let friends = [];
         let expenses = [];
         let currentPayers = [];
         let onConfirmCallback = null;
         
-        // Initialize app when DOM is loaded
         document.addEventListener('DOMContentLoaded', function() {
             initializeApp();
         });
 
         function initializeApp() {
-            // Load saved data with better error handling
             loadSavedData();
-            
-            // Setup event listeners
             setupEventListeners();
-            
-            // Update UI
             updateAllUI();
-            
-            console.log('App initialized successfully', { friends, expenses });
         }
 
         function loadSavedData() {
@@ -198,91 +190,64 @@
                 const savedFriends = localStorage.getItem('quickSplitFriends');
                 if (savedFriends && savedFriends !== 'null' && savedFriends !== 'undefined') {
                     const parsedFriends = JSON.parse(savedFriends);
-                    if (Array.isArray(parsedFriends)) {
-                        friends = parsedFriends;
-                    }
+                    if (Array.isArray(parsedFriends)) friends = parsedFriends;
                 }
-            } catch (error) {
-                console.warn('Error loading friends data, clearing corrupted data:', error);
+            } catch (e) {
                 localStorage.removeItem('quickSplitFriends');
                 friends = [];
             }
-
             try {
                 const savedExpenses = localStorage.getItem('quickSplitExpenses');
                 if (savedExpenses && savedExpenses !== 'null' && savedExpenses !== 'undefined') {
                     const parsedExpenses = JSON.parse(savedExpenses);
-                    if (Array.isArray(parsedExpenses)) {
-                        expenses = parsedExpenses;
-                    }
+                    if (Array.isArray(parsedExpenses)) expenses = parsedExpenses;
                 }
-            } catch (error) {
-                console.warn('Error loading expenses data, clearing corrupted data:', error);
+            } catch (e) {
                 localStorage.removeItem('quickSplitExpenses');
                 expenses = [];
             }
         }
 
         function setupEventListeners() {
-            // Add friend button and enter key
             document.getElementById('add-friend-btn').addEventListener('click', addFriend);
             document.getElementById('friend-name-input').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    addFriend();
-                }
+                if (e.key === 'Enter') { e.preventDefault(); addFriend(); }
             });
-
-            // Add payer button
             document.getElementById('add-payer-btn').addEventListener('click', addPayerToExpense);
-            
-            // Expense form
             document.getElementById('expense-form').addEventListener('submit', function(e) {
-                e.preventDefault();
-                addExpense();
+                e.preventDefault(); addExpense();
             });
-
-            // Split method change
             document.querySelectorAll('input[name="split-method"]').forEach(radio => {
                 radio.addEventListener('change', toggleUnequalSplit);
             });
-
-            // Clear data button
             document.getElementById('clear-data-btn').addEventListener('click', confirmClearAllData);
-
-            // Modal listeners
             setupModalListeners();
+        }
+
+        function formatDateTime(timestamp) {
+            const date = new Date(timestamp);
+            const options = { 
+                day: 'numeric', 
+                month: 'short', 
+                year: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+                hour12: true
+            };
+            return date.toLocaleDateString('en-IN', options);
         }
 
         function addFriend() {
             try {
                 const nameInput = document.getElementById('friend-name-input');
                 const name = nameInput.value.trim();
-                
-                console.log('Adding friend:', name);
-                
-                if (!name) {
-                    alert('Please enter a name.');
-                    return;
-                }
-                
-                if (friends.includes(name)) {
-                    alert('This friend is already in your list!');
-                    return;
-                }
-                
+                if (!name) { alert('Please enter a name.'); return; }
+                if (friends.includes(name)) { alert('This friend is already in your list!'); return; }
                 friends.push(name);
                 nameInput.value = '';
-                
-                console.log('Friends array after adding:', friends);
-                
                 saveFriends();
                 updateAllUI();
-                
-            } catch (error) {
-                console.error('Error adding friend:', error);
-                alert('Error adding friend. Please try again.');
-            }
+            } catch (e) { alert('Error adding friend. Please try again.'); }
         }
 
         function removeFriend(index) {
@@ -292,20 +257,16 @@
                     exp.participants.includes(friendToRemove) || 
                     exp.payers.some(p => p.name === friendToRemove)
                 );
-
                 if (isFriendInvolved) {
                     alert(`Cannot remove ${friendToRemove} as they are part of an existing expense. Please remove related expenses first.`);
                     return;
                 }
-                
                 showConfirmationModal(`Are you sure you want to permanently delete ${friendToRemove}?`, () => {
                     friends.splice(index, 1);
                     saveFriends();
                     updateAllUI();
                 });
-            } catch (error) {
-                console.error('Error removing friend:', error);
-            }
+            } catch (e) {}
         }
 
         function addPayerToExpense() {
@@ -314,23 +275,17 @@
                 const payerAmountInput = document.getElementById('payer-amount');
                 const name = payerSelect.value;
                 const amount = parseFloat(payerAmountInput.value);
-
                 if (!name || !amount || amount <= 0) {
-                    alert("Please select a payer and enter a valid positive amount.");
-                    return;
+                    alert("Please select a payer and enter a valid positive amount."); return;
                 }
                 if (currentPayers.some(p => p.name === name)) {
-                    alert(`${name} is already in the payers list for this expense.`);
-                    return;
+                    alert(`${name} is already in the payers list for this expense.`); return;
                 }
-
                 currentPayers.push({ name, amount });
                 payerAmountInput.value = '';
                 renderCurrentPayersList();
                 updateTotalExpenseAmount();
-            } catch (error) {
-                console.error('Error adding payer:', error);
-            }
+            } catch (e) {}
         }
 
         function removePayerFromExpense(index) {
@@ -343,26 +298,18 @@
             try {
                 const description = document.getElementById('description').value;
                 const totalAmount = currentPayers.reduce((sum, p) => sum + p.amount, 0);
-
                 if (currentPayers.length === 0) {
-                    alert("Please add at least one payer for the expense.");
-                    return;
+                    alert("Please add at least one payer for the expense."); return;
                 }
-
                 const splitMethod = document.querySelector('input[name="split-method"]:checked').value;
                 const selectedParticipants = Array.from(document.querySelectorAll('#expense-participants-checkboxes input:checked')).map(cb => cb.name);
-
                 if (selectedParticipants.length < 1) {
-                    alert("Please select at least one person involved in the expense.");
-                    return;
+                    alert("Please select at least one person involved in the expense."); return;
                 }
-                
                 const allPayersAreParticipants = currentPayers.every(p => selectedParticipants.includes(p.name));
                 if (!allPayersAreParticipants) {
-                    alert("All payers must also be selected as participants in the expense.");
-                    return;
+                    alert("All payers must also be selected as participants in the expense."); return;
                 }
-
                 let splits = [];
                 if (splitMethod === 'equally') {
                     const numParticipants = selectedParticipants.length;
@@ -390,21 +337,23 @@
                         return;
                     }
                 }
-                
-                const newExpense = { id: Date.now(), description, amount: totalAmount, payers: [...currentPayers], participants: selectedParticipants, splits };
+                const newExpense = { 
+                    id: Date.now(), 
+                    description, 
+                    amount: totalAmount, 
+                    payers: [...currentPayers], 
+                    participants: selectedParticipants, 
+                    splits,
+                    createdAt: Date.now()
+                };
                 expenses.push(newExpense);
-                
-                // Clear form state after submission
                 currentPayers = [];
                 document.getElementById('expense-form').reset();
                 saveExpenses();
                 updateAllUI();
                 renderCurrentPayersList();
                 updateTotalExpenseAmount();
-            } catch (error) {
-                console.error('Error adding expense:', error);
-                alert('Error adding expense. Please try again.');
-            }
+            } catch (e) { alert('Error adding expense. Please try again.'); }
         }
 
         function removeExpense(id) {
@@ -427,7 +376,6 @@
             const container = document.getElementById('unequal-split-container');
             const isUnequal = document.querySelector('input[name="split-method"]:checked').value === 'unequally';
             const selectedParticipants = Array.from(document.querySelectorAll('#expense-participants-checkboxes input:checked')).map(cb => cb.name);
-
             if (isUnequal && selectedParticipants.length > 0) {
                 container.style.display = 'block';
                 renderUnequalSplitInputs();
@@ -440,21 +388,15 @@
             const container = document.getElementById('unequal-split-inputs');
             container.innerHTML = '';
             const selectedParticipants = Array.from(document.querySelectorAll('#expense-participants-checkboxes input:checked')).map(cb => cb.name);
-            
             selectedParticipants.forEach(name => {
                 const row = document.createElement('div');
                 row.className = 'unequal-split-row';
-                row.innerHTML = `
-                    <label for="unequal-${name}">${name}</label>
-                    <input type="number" id="unequal-${name}" data-name="${name}" min="0" step="0.01" placeholder="0.00">`;
+                row.innerHTML = `<label for="unequal-${name}">${name}</label><input type="number" id="unequal-${name}" data-name="${name}" min="0" step="0.01" placeholder="0.00">`;
                 container.appendChild(row);
             });
-            
-            // Add event listeners to new inputs
             container.querySelectorAll('input').forEach(input => {
                 input.addEventListener('input', updateUnequalSplitTotal);
             });
-            
             updateUnequalSplitTotal();
         }
         
@@ -463,31 +405,18 @@
             const inputs = document.querySelectorAll('#unequal-split-inputs input');
             let currentSplitTotal = 0;
             inputs.forEach(input => { currentSplitTotal += parseFloat(input.value) || 0; });
-            
             const totalDiv = document.getElementById('unequal-split-total');
             totalDiv.textContent = `Total: ₹${currentSplitTotal.toFixed(2)} / ₹${totalAmount.toFixed(2)}`;
             totalDiv.style.color = Math.abs(currentSplitTotal - totalAmount) > 0.01 ? 'var(--danger-color)' : 'var(--primary-color)';
         }
 
-        // Data persistence functions
         function saveFriends() { 
-            try {
-                localStorage.setItem('quickSplitFriends', JSON.stringify(friends)); 
-                console.log('Friends saved:', friends);
-            } catch (error) {
-                console.error('Error saving friends:', error);
-            }
+            try { localStorage.setItem('quickSplitFriends', JSON.stringify(friends)); } catch (e) {}
         }
-        
         function saveExpenses() { 
-            try {
-                localStorage.setItem('quickSplitExpenses', JSON.stringify(expenses)); 
-            } catch (error) {
-                console.error('Error saving expenses:', error);
-            }
+            try { localStorage.setItem('quickSplitExpenses', JSON.stringify(expenses)); } catch (e) {}
         }
 
-        // UI Update functions
         function updateAllUI() {
             renderFriendsList();
             renderPayerSelect();
@@ -500,20 +429,14 @@
         function renderFriendsList() {
             const list = document.getElementById('friends-list');
             list.innerHTML = '';
-            if (friends.length === 0) {
-                list.innerHTML = '<li>No friends saved yet.</li>';
-                return;
-            }
+            if (friends.length === 0) { list.innerHTML = '<li>No friends saved yet.</li>'; return; }
             friends.forEach((name, index) => {
                 const li = document.createElement('li');
                 li.innerHTML = `<span>${name}</span> <button class="danger" data-index="${index}">Delete</button>`;
-                
-                // Add event listener to delete button
                 li.querySelector('button').addEventListener('click', (e) => {
                     e.stopPropagation();
                     removeFriend(parseInt(e.target.dataset.index));
                 });
-                
                 list.appendChild(li);
             });
         }
@@ -539,12 +462,9 @@
             currentPayers.forEach((payer, index) => {
                 const li = document.createElement('li');
                 li.innerHTML = `<span>${payer.name} paid ₹${payer.amount.toFixed(2)}</span> <button type="button" class="danger" data-index="${index}">Remove</button>`;
-                
-                // Add event listener to remove button
                 li.querySelector('button').addEventListener('click', (e) => {
                     removePayerFromExpense(parseInt(e.target.dataset.index));
                 });
-                
                 list.appendChild(li);
             });
         }
@@ -558,17 +478,11 @@
         function renderExpenseParticipantCheckboxes() {
             const container = document.getElementById('expense-participants-checkboxes');
             container.innerHTML = '';
-            if (friends.length === 0) {
-                container.innerHTML = '<p>Add friends to your list.</p>'; 
-                return;
-            }
+            if (friends.length === 0) { container.innerHTML = '<p>Add friends to your list.</p>'; return; }
             friends.forEach(name => {
                 const label = document.createElement('label');
                 label.innerHTML = `<input type="checkbox" name="${name}"> ${name}`;
-                
-                // Add event listener to checkbox
                 label.querySelector('input').addEventListener('change', toggleUnequalSplit);
-                
                 container.appendChild(label);
             });
         }
@@ -582,34 +496,23 @@
         function renderExpenses() {
             const list = document.getElementById('expenses-list');
             list.innerHTML = '';
-            if (expenses.length === 0) {
-                list.innerHTML = '<li>No expenses logged yet.</li>'; 
-                return;
-            }
+            if (expenses.length === 0) { list.innerHTML = '<li>No expenses logged yet.</li>'; return; }
             expenses.slice().reverse().forEach(exp => {
                 const li = document.createElement('li');
-                
-                const payersString = exp.payers.length === 1 
-                    ? `${exp.payers[0].name}`
-                    : `${exp.payers.length} people`;
+                const payersString = exp.payers.length === 1 ? `${exp.payers[0].name}` : `${exp.payers.length} people`;
+                const dateTimeStr = exp.createdAt ? formatDateTime(exp.createdAt) : '';
 
                 let breakdownHTML = '<h4>Settlement Details:</h4>';
                 exp.splits.forEach(split => {
-                    const totalPaid = exp.payers
-                        .filter(p => p.name === split.name)
-                        .reduce((sum, p) => sum + p.amount, 0);
-                    
+                    const totalPaid = exp.payers.filter(p => p.name === split.name).reduce((sum, p) => sum + p.amount, 0);
                     const balance = totalPaid - split.amount;
                     if (Math.abs(balance) > 0.01) {
-                        const balanceText = balance > 0 
-                            ? `is owed ₹${balance.toFixed(2)}` 
-                            : `owes ₹${(-balance).toFixed(2)}`;
+                        const balanceText = balance > 0 ? `is owed ₹${balance.toFixed(2)}` : `owes ₹${(-balance).toFixed(2)}`;
                         breakdownHTML += `<p><strong>${split.name}</strong>: ${balanceText}</p>`;
                     } else {
                         breakdownHTML += `<p><strong>${split.name}</strong>: settled</p>`;
                     }
                 });
-
                 if (exp.payers.length > 1) {
                     breakdownHTML += '<h4>Payment Details:</h4>';
                     exp.payers.forEach(payer => {
@@ -622,29 +525,23 @@
                         <div class="expense-details">
                             <b>${exp.description}</b>
                             <div class="expense-info">Total ₹${exp.amount.toFixed(2)} | Paid by ${payersString}</div>
+                            ${dateTimeStr ? `<div class="expense-date">${dateTimeStr}</div>` : ''}
                         </div>
                         <div class="expense-actions">
                             <span class="toggle-arrow">▼</span>
                             <button class="danger" data-id="${exp.id}">Delete</button>
                         </div>
                     </div>
-                    <div class="expense-participants-list">
-                        Split between: ${exp.participants.join(', ')}
-                    </div>
+                    <div class="expense-participants-list">Split between: ${exp.participants.join(', ')}</div>
                     <div class="expense-breakdown">${breakdownHTML}</div>`;
                 
-                // Add event listeners
                 li.addEventListener('click', (e) => {
-                    if (!e.target.closest('button')) {
-                        toggleExpenseDetails(li);
-                    }
+                    if (!e.target.closest('button')) toggleExpenseDetails(li);
                 });
-                
                 li.querySelector('.expense-actions button').addEventListener('click', (e) => {
                     e.stopPropagation();
                     removeExpense(parseInt(e.target.dataset.id));
                 });
-                
                 list.appendChild(li);
             });
         }
@@ -652,7 +549,6 @@
         function calculateAndRenderSummary() {
             const balances = new Map();
             friends.forEach(p => balances.set(p, 0));
-
             expenses.forEach(exp => {
                 exp.payers.forEach(payer => {
                     balances.set(payer.name, balances.get(payer.name) + payer.amount);
@@ -661,36 +557,26 @@
                     balances.set(split.name, balances.get(split.name) - split.amount);
                 });
             });
-
             const debtors = [];
             const creditors = [];
             balances.forEach((amount, name) => {
                 const roundedAmount = Math.round(amount * 100) / 100;
-                if (roundedAmount < -0.01) {
-                    debtors.push({ name, amount: -roundedAmount });
-                } else if (roundedAmount > 0.01) {
-                    creditors.push({ name, amount: roundedAmount });
-                }
+                if (roundedAmount < -0.01) debtors.push({ name, amount: -roundedAmount });
+                else if (roundedAmount > 0.01) creditors.push({ name, amount: roundedAmount });
             });
-
             const transactions = [];
             debtors.sort((a, b) => a.amount - b.amount);
             creditors.sort((a, b) => a.amount - b.amount);
-
             while (debtors.length > 0 && creditors.length > 0) {
                 const debtor = debtors[0];
                 const creditor = creditors[0];
                 const amount = Math.min(debtor.amount, creditor.amount);
-
                 transactions.push({ from: debtor.name, to: creditor.name, amount });
-
                 debtor.amount = parseFloat((debtor.amount - amount).toFixed(2));
                 creditor.amount = parseFloat((creditor.amount - amount).toFixed(2));
-
                 if (debtor.amount < 0.01) debtors.shift();
                 if (creditor.amount < 0.01) creditors.shift();
             }
-
             const summaryList = document.getElementById('settlement-summary');
             summaryList.innerHTML = '';
             if (transactions.length === 0) {
