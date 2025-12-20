@@ -44,6 +44,8 @@
         button.archive:hover { background-color: #F57C00; }
         button.secondary { background-color: #6c757d; font-size: 0.9em; }
         button.secondary:hover { background-color: #5a6268; }
+        button.payback { background-color: #2196F3; font-size: 0.85em; padding: 6px 12px; }
+        button.payback:hover { background-color: #1976D2; }
         #friends-list li, #payers-list li { background: #fafafa; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; }
         #payers-list li { background: #e8f5e9; border-color: var(--primary-light); }
         #expenses-list li, #archive-list li { background: #fafafa; padding: 12px; border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 8px; display: flex; flex-direction: column; transition: background-color 0.2s ease; cursor: pointer; }
@@ -71,8 +73,14 @@
         .expense-breakdown h4 { margin: 8px 0; font-size: 1em; color: var(--primary-color); }
         #expense-participants-checkboxes { max-height: 150px; overflow-y: auto; background: #f9f9f9; padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); }
         #expense-participants-checkboxes label { display: block; margin-bottom: 8px; }
-        #settlement-summary li { background: #e8f5e9; padding: 14px; border-radius: 8px; margin-bottom: 10px; list-style: none; }
+        #settlement-summary li { background: #e8f5e9; padding: 14px; border-radius: 8px; margin-bottom: 10px; list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
         #settlement-summary li.placeholder { background: #f1f1f1; }
+        .settlement-text { flex: 1; min-width: 200px; }
+        @media (max-width: 480px) {
+            #settlement-summary li { flex-direction: column; align-items: flex-start; }
+            .settlement-text { width: 100%; }
+            #settlement-summary li button { align-self: flex-end; }
+        }
         .split-method-group { display: flex; gap: 20px; margin-bottom: 15px; }
         #unequal-split-container { display: none; background-color: #f9f9f9; border: 1px dashed var(--border-color); padding: 15px; border-radius: 8px; margin-top: 15px; }
         .unequal-split-row { display: flex; align-items: center; margin-bottom: 8px; gap: 10px; }
@@ -93,6 +101,7 @@
         @media (max-width: 480px) {
             .archive-badge { display: block; margin-left: 0; margin-top: 4px; width: fit-content; }
         }
+        .payback-badge { display: inline-block; background: #2196F3; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75em; margin-left: 8px; font-weight: 600; }
     </style>
 </head>
 <body>
@@ -196,12 +205,28 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="payback-modal">
+        <div class="modal-content">
+            <h3 style="margin-top: 0;">Record Payback</h3>
+            <p id="payback-text"></p>
+            <div class="input-group">
+                <label for="payback-amount">Amount paid back:</label>
+                <input type="number" id="payback-amount" placeholder="Enter amount" step="0.01" min="0.01">
+            </div>
+            <div class="modal-buttons">
+                <button class="button-secondary" id="payback-cancel">Cancel</button>
+                <button class="payback" id="payback-confirm">Record Payback</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let friends = [];
         let expenses = [];
         let archivedExpenses = [];
         let currentPayers = [];
         let onConfirmCallback = null;
+        let currentPaybackData = null;
         
         document.addEventListener('DOMContentLoaded', function() {
             initializeApp();
@@ -261,6 +286,7 @@
             document.getElementById('clear-data-btn').addEventListener('click', confirmClearAllData);
             document.getElementById('archive-header').addEventListener('click', toggleArchiveSection);
             setupModalListeners();
+            setupPaybackModalListeners();
         }
 
         function toggleArchiveSection() {
@@ -588,6 +614,7 @@
                 const li = document.createElement('li');
                 const payersString = exp.payers.length === 1 ? `${exp.payers[0].name}` : `${exp.payers.length} people`;
                 const dateTimeStr = exp.createdAt ? formatDateTime(exp.createdAt) : '';
+                const isPayback = exp.description === 'Payback';
 
                 let breakdownHTML = '<h4>Settlement Details:</h4>';
                 exp.splits.forEach(split => {
@@ -610,7 +637,7 @@
                 li.innerHTML = `
                     <div class="expense-header">
                         <div class="expense-details">
-                            <b>${exp.description}</b>
+                            <b>${exp.description}</b>${isPayback ? '<span class="payback-badge">PAYBACK</span>' : ''}
                             <div class="expense-info">Total ₹${exp.amount.toFixed(2)} | Paid by ${payersString}</div>
                             ${dateTimeStr ? `<div class="expense-date">${dateTimeStr}</div>` : ''}
                         </div>
@@ -655,6 +682,7 @@
                 const payersString = exp.payers.length === 1 ? `${exp.payers[0].name}` : `${exp.payers.length} people`;
                 const dateTimeStr = exp.createdAt ? formatDateTime(exp.createdAt) : '';
                 const archivedTimeStr = exp.archivedAt ? formatDateTime(exp.archivedAt) : '';
+                const isPayback = exp.description === 'Payback';
 
                 let breakdownHTML = '<h4>Settlement Details:</h4>';
                 exp.splits.forEach(split => {
@@ -677,7 +705,7 @@
                 li.innerHTML = `
                     <div class="expense-header">
                         <div class="expense-details">
-                            <b>${exp.description}</b><span class="archive-badge">ARCHIVED</span>
+                            <b>${exp.description}</b><span class="archive-badge">ARCHIVED</span>${isPayback ? '<span class="payback-badge">PAYBACK</span>' : ''}
                             <div class="expense-info">Total ₹${exp.amount.toFixed(2)} | Paid by ${payersString}</div>
                             ${dateTimeStr ? `<div class="expense-date">Created: ${dateTimeStr}</div>` : ''}
                             ${archivedTimeStr ? `<div class="expense-date">Archived: ${archivedTimeStr}</div>` : ''}
@@ -747,9 +775,81 @@
             } else {
                 transactions.forEach(t => {
                     const li = document.createElement('li');
-                    li.innerHTML = `<strong>${t.from}</strong> owes <strong>${t.to}</strong> → <strong>₹${t.amount.toFixed(2)}</strong>`;
+                    li.innerHTML = `
+                        <span class="settlement-text"><strong>${t.from}</strong> owes <strong>${t.to}</strong> → <strong>₹${t.amount.toFixed(2)}</strong></span>
+                        <button class="payback" data-from="${t.from}" data-to="${t.to}" data-amount="${t.amount}">Payback</button>
+                    `;
+                    li.querySelector('button').addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        showPaybackModal(e.target.dataset.from, e.target.dataset.to, parseFloat(e.target.dataset.amount));
+                    });
                     summaryList.appendChild(li);
                 });
+            }
+        }
+
+        function showPaybackModal(from, to, maxAmount) {
+            currentPaybackData = { from, to, maxAmount };
+            const modal = document.getElementById('payback-modal');
+            document.getElementById('payback-text').textContent = `${from} is paying back ${to}`;
+            document.getElementById('payback-amount').value = '';
+            document.getElementById('payback-amount').max = maxAmount.toFixed(2);
+            modal.classList.add('active');
+        }
+
+        function hidePaybackModal() {
+            document.getElementById('payback-modal').classList.remove('active');
+            currentPaybackData = null;
+        }
+
+        function setupPaybackModalListeners() {
+            const modal = document.getElementById('payback-modal');
+            document.getElementById('payback-confirm').addEventListener('click', () => {
+                if (currentPaybackData) {
+                    const amount = parseFloat(document.getElementById('payback-amount').value);
+                    if (!amount || amount <= 0) {
+                        alert('Please enter a valid positive amount.');
+                        return;
+                    }
+                    if (amount > currentPaybackData.maxAmount + 0.01) {
+                        alert(`Amount cannot exceed ₹${currentPaybackData.maxAmount.toFixed(2)}`);
+                        return;
+                    }
+                    recordPayback(currentPaybackData.from, currentPaybackData.to, amount);
+                }
+                hidePaybackModal();
+            });
+            document.getElementById('payback-cancel').addEventListener('click', hidePaybackModal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) hidePaybackModal();
+            });
+            document.getElementById('payback-amount').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    document.getElementById('payback-confirm').click();
+                }
+            });
+        }
+
+        function recordPayback(from, to, amount) {
+            try {
+                const newExpense = {
+                    id: Date.now(),
+                    description: 'Payback',
+                    amount: amount,
+                    payers: [{ name: from, amount: amount }],
+                    participants: [from, to],
+                    splits: [
+                        { name: from, amount: 0 },
+                        { name: to, amount: amount }
+                    ],
+                    createdAt: Date.now()
+                };
+                expenses.push(newExpense);
+                saveExpenses();
+                updateAllUI();
+            } catch (e) {
+                alert('Error recording payback. Please try again.');
             }
         }
 
