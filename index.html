@@ -127,6 +127,56 @@
             font-weight: 500;
         }
         
+        .filter-container {
+            background: var(--checkbox-bg);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border: 1px solid var(--border-color);
+            transition: background-color 0.3s ease;
+        }
+        
+        .filter-row {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .filter-row label {
+            font-weight: 600;
+            color: var(--text-color);
+            margin-right: 5px;
+        }
+        
+        .filter-row input[type="date"] {
+            flex: 1;
+            min-width: 150px;
+            padding: 8px 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 0.9em;
+            background-color: var(--input-background);
+            color: var(--text-color);
+            transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+        }
+        
+        .filter-row button {
+            padding: 8px 16px;
+            font-size: 0.9em;
+        }
+        
+        .active-filter-badge {
+            display: inline-block;
+            background: var(--primary-light);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
         .input-group { margin-bottom: 15px; }
         .input-group label { display: block; margin-bottom: 8px; font-weight: 600; color: var(--text-color); }
         input[type="text"], input[type="number"], input[type="datetime-local"], select { 
@@ -284,12 +334,26 @@
         </div>
 
         <div class="card full-width">
-            <h2>3. Expenses Log</h2>
+            <h2>3. Expenses Log
+                <span id="expense-filter-badge"></span>
+            </h2>
+            <div class="filter-container">
+                <div class="filter-row">
+                    <label for="filter-start-date">From:</label>
+                    <input type="date" id="filter-start-date">
+                    <label for="filter-end-date">To:</label>
+                    <input type="date" id="filter-end-date">
+                    <button type="button" class="secondary" id="apply-filter-btn">Apply Filter</button>
+                    <button type="button" class="secondary" id="clear-filter-btn">Clear Filter</button>
+                </div>
+            </div>
             <ul id="expenses-list"></ul>
         </div>
 
         <div class="card full-width">
-            <h2>4. Final Summary</h2>
+            <h2>4. Final Summary
+                <span id="summary-filter-badge"></span>
+            </h2>
             <p>Here's the simplest way for everyone to settle up across all expenses:</p>
             <ul id="settlement-summary"></ul>
         </div>
@@ -344,6 +408,8 @@
         let currentPayers = [];
         let onConfirmCallback = null;
         let currentPaybackData = null;
+        let filterStartDate = null;
+        let filterEndDate = null;
         
         document.addEventListener('DOMContentLoaded', function() {
             initializeApp();
@@ -427,8 +493,83 @@
             document.getElementById('clear-data-btn').addEventListener('click', confirmClearAllData);
             document.getElementById('archive-header').addEventListener('click', toggleArchiveSection);
             document.getElementById('theme-toggle-checkbox').addEventListener('change', toggleTheme);
+            document.getElementById('apply-filter-btn').addEventListener('click', applyDateFilter);
+            document.getElementById('clear-filter-btn').addEventListener('click', clearDateFilter);
             setupModalListeners();
             setupPaybackModalListeners();
+        }
+
+        function applyDateFilter() {
+            const startDateInput = document.getElementById('filter-start-date').value;
+            const endDateInput = document.getElementById('filter-end-date').value;
+            
+            if (!startDateInput && !endDateInput) {
+                alert('Please select at least one date to filter.');
+                return;
+            }
+            
+            filterStartDate = startDateInput ? new Date(startDateInput).setHours(0, 0, 0, 0) : null;
+            filterEndDate = endDateInput ? new Date(endDateInput).setHours(23, 59, 59, 999) : null;
+            
+            updateFilterBadges();
+            renderExpenses();
+            calculateAndRenderSummary();
+        }
+
+        function clearDateFilter() {
+            filterStartDate = null;
+            filterEndDate = null;
+            document.getElementById('filter-start-date').value = '';
+            document.getElementById('filter-end-date').value = '';
+            updateFilterBadges();
+            renderExpenses();
+            calculateAndRenderSummary();
+        }
+
+        function updateFilterBadges() {
+            const expenseBadge = document.getElementById('expense-filter-badge');
+            const summaryBadge = document.getElementById('summary-filter-badge');
+            
+            if (filterStartDate || filterEndDate) {
+                let filterText = '';
+                if (filterStartDate && filterEndDate) {
+                    filterText = `${formatDate(filterStartDate)} - ${formatDate(filterEndDate)}`;
+                } else if (filterStartDate) {
+                    filterText = `From ${formatDate(filterStartDate)}`;
+                } else {
+                    filterText = `Until ${formatDate(filterEndDate)}`;
+                }
+                expenseBadge.innerHTML = `<span class="active-filter-badge">${filterText}</span>`;
+                summaryBadge.innerHTML = `<span class="active-filter-badge">${filterText}</span>`;
+            } else {
+                expenseBadge.innerHTML = '';
+                summaryBadge.innerHTML = '';
+            }
+        }
+
+        function formatDate(timestamp) {
+            const date = new Date(timestamp);
+            const day = date.getDate();
+            const month = date.toLocaleDateString('en-IN', { month: 'short' });
+            const year = date.getFullYear();
+            return `${day} ${month} ${year}`;
+        }
+
+        function getFilteredExpenses() {
+            if (!filterStartDate && !filterEndDate) {
+                return expenses;
+            }
+            
+            return expenses.filter(exp => {
+                const expDate = exp.createdAt || 0;
+                if (filterStartDate && filterEndDate) {
+                    return expDate >= filterStartDate && expDate <= filterEndDate;
+                } else if (filterStartDate) {
+                    return expDate >= filterStartDate;
+                } else {
+                    return expDate <= filterEndDate;
+                }
+            });
         }
 
         function setCurrentDateTime() {
@@ -509,11 +650,10 @@
                 }
                 currentPayers.push({ name, amount });
                 
-                // Automatically check the participant checkbox for this payer
                 const participantCheckbox = document.querySelector(`#expense-participants-checkboxes input[name="${name}"]`);
                 if (participantCheckbox && !participantCheckbox.checked) {
                     participantCheckbox.checked = true;
-                    toggleUnequalSplit(); // Refresh unequal split inputs if needed
+                    toggleUnequalSplit();
                 }
 
                 payerAmountInput.value = '';
@@ -574,7 +714,6 @@
                     }
                 }
                 
-                // Use selected date or fallback to now
                 const timestamp = expenseDateInput ? new Date(expenseDateInput).getTime() : Date.now();
 
                 const newExpense = { 
@@ -589,7 +728,7 @@
                 expenses.push(newExpense);
                 currentPayers = [];
                 document.getElementById('expense-form').reset();
-                setCurrentDateTime(); // Reset to current time after adding
+                setCurrentDateTime();
                 saveExpenses();
                 updateAllUI();
                 renderCurrentPayersList();
@@ -708,6 +847,7 @@
             renderArchivedExpenses();
             calculateAndRenderSummary();
             toggleUnequalSplit();
+            updateFilterBadges();
         }
 
         function renderFriendsList() {
@@ -780,10 +920,16 @@
         function renderExpenses() {
             const list = document.getElementById('expenses-list');
             list.innerHTML = '';
-            if (expenses.length === 0) { list.innerHTML = '<li>No expenses logged yet.</li>'; return; }
             
-            // Sort by date before rendering
-            const sortedExpenses = [...expenses].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            const filteredExpenses = getFilteredExpenses();
+            
+            if (filteredExpenses.length === 0) { 
+                const noExpensesText = (filterStartDate || filterEndDate) ? 'No expenses found for the selected date range.' : 'No expenses logged yet.';
+                list.innerHTML = `<li>${noExpensesText}</li>`; 
+                return; 
+            }
+            
+            const sortedExpenses = [...filteredExpenses].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
             sortedExpenses.forEach(exp => {
                 const li = document.createElement('li');
@@ -914,7 +1060,10 @@
         function calculateAndRenderSummary() {
             const balances = new Map();
             friends.forEach(p => balances.set(p, 0));
-            expenses.forEach(exp => {
+            
+            const filteredExpenses = getFilteredExpenses();
+            
+            filteredExpenses.forEach(exp => {
                 exp.payers.forEach(payer => {
                     balances.set(payer.name, balances.get(payer.name) + payer.amount);
                 });
@@ -945,7 +1094,10 @@
             const summaryList = document.getElementById('settlement-summary');
             summaryList.innerHTML = '';
             if (transactions.length === 0) {
-                const placeholderText = expenses.length > 0 ? 'All settled up!' : 'Add an expense to see the summary.';
+                let placeholderText = 'All settled up!';
+                if (filteredExpenses.length === 0) {
+                    placeholderText = (filterStartDate || filterEndDate) ? 'No expenses in the selected date range.' : 'Add an expense to see the summary.';
+                }
                 summaryList.innerHTML = `<li class="placeholder">${placeholderText}</li>`;
             } else {
                 transactions.forEach(t => {
