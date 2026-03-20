@@ -257,6 +257,47 @@
             .archive-badge { display: block; margin-left: 0; margin-top: 4px; width: fit-content; }
         }
         .payback-badge { display: inline-block; background: #2196F3; color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75em; margin-left: 8px; font-weight: 600; }
+
+        /* Trail feature */
+        #settlement-summary li:not(.placeholder) { cursor: pointer; }
+        #settlement-summary li:not(.placeholder):hover { filter: brightness(0.96); }
+        .settlement-text .trail-hint { font-size: 0.75em; color: var(--light-text-color); margin-left: 6px; opacity: 0.7; }
+        .trail-modal-content { max-width: 480px; text-align: left; max-height: 80vh; overflow-y: auto; }
+        .trail-subtitle { font-size: 0.9em; color: var(--light-text-color); margin: 0 0 16px; }
+
+        /* Receipt rows */
+        .trail-receipt { background: var(--expense-bg); border: 1px solid var(--border-color); border-radius: 10px; overflow: hidden; margin-bottom: 14px; }
+        .trail-receipt-row { display: flex; align-items: flex-start; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--border-color); }
+        .trail-receipt-row:last-child { border-bottom: none; }
+        .trail-receipt-row.add { background: transparent; }
+        .trail-receipt-row.subtract { background: color-mix(in srgb, var(--danger-color) 8%, transparent); }
+        .trail-receipt-row.total-row { background: var(--settlement-bg); border-top: 2px solid var(--primary-light); }
+        .trail-badge { font-size: 0.72em; font-weight: 700; padding: 2px 7px; border-radius: 4px; white-space: nowrap; margin-top: 2px; min-width: 26px; text-align: center; }
+        .trail-badge.plus { background: var(--primary-light); color: white; }
+        .trail-badge.minus { background: var(--danger-color); color: white; }
+        .trail-badge.equals { background: var(--primary-color); color: white; }
+        .trail-badge.arrow { background: var(--border-color); color: var(--text-color); }
+        .trail-you-are-here { font-size: 0.78em; font-weight: 600; color: var(--primary-color); margin-left: 4px; }
+        .trail-row-content { flex: 1; }
+        .trail-row-main { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+        .trail-row-desc { font-size: 0.85em; color: var(--light-text-color); margin-top: 3px; }
+        .trail-row-amount { font-weight: 700; font-size: 1em; white-space: nowrap; }
+        .trail-row-amount.add { color: var(--primary-color); }
+        .trail-row-amount.subtract { color: var(--danger-color); }
+        .trail-row-amount.total { color: var(--primary-color); font-size: 1.1em; }
+        .trail-row-label { font-size: 0.95em; color: var(--text-color); }
+        .trail-row-label.total { font-weight: 700; }
+
+        /* Chain steps */
+        .trail-chain-step { background: var(--expense-bg); border: 1px solid var(--border-color); border-radius: 10px; padding: 11px 14px; margin-bottom: 6px; }
+        .trail-chain-step-main { display: flex; justify-content: space-between; align-items: center; }
+        .trail-chain-step-desc { font-size: 0.85em; color: var(--light-text-color); margin-top: 3px; }
+        .trail-chain-arrow { text-align: center; color: var(--light-text-color); font-size: 1em; margin: 4px 0; }
+        .trail-chain-result { background: var(--settlement-bg); border: 1.5px solid var(--primary-light); border-radius: 10px; padding: 11px 14px; margin-top: 10px; }
+        .trail-chain-result-label { font-size: 0.78em; color: var(--light-text-color); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 5px; }
+        .trail-chain-result-main { display: flex; justify-content: space-between; align-items: center; font-weight: 700; font-size: 1em; }
+        .trail-section-divider { font-size: 0.8em; font-weight: 600; color: var(--light-text-color); text-transform: uppercase; letter-spacing: 0.5px; margin: 16px 0 8px; }
+        .trail-no-chain { font-size: 0.9em; color: var(--light-text-color); margin: 0 0 12px; }
     </style>
 </head>
 <body>
@@ -397,6 +438,16 @@
             <div class="modal-buttons">
                 <button class="button-secondary" id="payback-cancel">Cancel</button>
                 <button class="payback" id="payback-confirm">Record Payback</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="trail-modal">
+        <div class="modal-content trail-modal-content">
+            <h3 style="margin-top: 0;" id="trail-modal-title">How was this calculated?</h3>
+            <div id="trail-modal-body"></div>
+            <div class="modal-buttons" style="margin-top: 18px;">
+                <button id="trail-modal-close">Close</button>
             </div>
         </div>
     </div>
@@ -1091,6 +1142,7 @@
                 if (debtor.amount < 0.01) debtors.shift();
                 if (creditor.amount < 0.01) creditors.shift();
             }
+
             const summaryList = document.getElementById('settlement-summary');
             summaryList.innerHTML = '';
             if (transactions.length === 0) {
@@ -1103,16 +1155,132 @@
                 transactions.forEach(t => {
                     const li = document.createElement('li');
                     li.innerHTML = `
-                        <span class="settlement-text"><strong>${t.from}</strong> owes <strong>${t.to}</strong> → <strong>₹${t.amount.toFixed(2)}</strong></span>
+                        <span class="settlement-text"><strong>${t.from}</strong> owes <strong>${t.to}</strong> → <strong>₹${t.amount.toFixed(2)}</strong><span class="trail-hint">tap to see why</span></span>
                         <button class="payback" data-from="${t.from}" data-to="${t.to}" data-amount="${t.amount}">Payback</button>
                     `;
                     li.querySelector('button').addEventListener('click', (e) => {
                         e.stopPropagation();
                         showPaybackModal(e.target.dataset.from, e.target.dataset.to, parseFloat(e.target.dataset.amount));
                     });
+                    li.addEventListener('click', (e) => {
+                        if (!e.target.closest('button')) {
+                            showDebtTrailModal(t.from, t.to, t.amount, transactions);
+                        }
+                    });
                     summaryList.appendChild(li);
                 });
             }
+        }
+
+        function showDebtTrailModal(from, to, amount, allTransactions) {
+            const modal = document.getElementById('trail-modal');
+            document.getElementById('trail-modal-title').textContent = `Why does ${from} pay ${to}?`;
+
+            const body = document.getElementById('trail-modal-body');
+            body.innerHTML = '';
+
+            const filteredExpenses = getFilteredExpenses();
+
+            // Per-expense breakdown for `from`
+            const oweLines = [];    // expenses where from owes others
+            const creditLines = []; // expenses where from paid for others (reduces their debt)
+
+            filteredExpenses.forEach(exp => {
+                const fromPaid = exp.payers
+                    .filter(p => p.name === from)
+                    .reduce((s, p) => s + p.amount, 0);
+                const fromOwes = exp.splits
+                    .filter(s => s.name === from)
+                    .reduce((s, sp) => s + sp.amount, 0);
+
+                const net = parseFloat((fromPaid - fromOwes).toFixed(2));
+                if (Math.abs(net) < 0.01) return;
+
+                if (net < 0) {
+                    const paidBy = exp.payers.filter(p => p.name !== from).map(p => p.name);
+                    oweLines.push({ desc: exp.description, amount: -net, paidBy: paidBy.join(', ') || '?' });
+                } else {
+                    creditLines.push({ desc: exp.description, amount: net });
+                }
+            });
+
+            const totalOwed = oweLines.reduce((s, l) => s + l.amount, 0);
+            const totalCredit = creditLines.reduce((s, l) => s + l.amount, 0);
+            const netDebt = Math.round((totalOwed - totalCredit) * 100) / 100;
+
+            function row(type, label, sub, amt) {
+                const badge = type === 'add' ? '+' : type === 'subtract' ? '−' : '=';
+                const badgeCls = type === 'add' ? 'plus' : type === 'subtract' ? 'minus' : 'equals';
+                const amtCls = type === 'total' ? 'total' : type;
+                return `<div class="trail-receipt-row ${type === 'total' ? 'total-row' : type}">
+                    <span class="trail-badge ${badgeCls}">${badge}</span>
+                    <div class="trail-row-content">
+                        <div class="trail-row-main">
+                            <span class="trail-row-label ${type === 'total' ? 'total' : ''}">${label}</span>
+                            <span class="trail-row-amount ${amtCls}">₹${amt.toFixed(2)}</span>
+                        </div>
+                        ${sub ? `<div class="trail-row-desc">${sub}</div>` : ''}
+                    </div>
+                </div>`;
+            }
+
+            let html = '';
+
+            // Section 1: What from owes
+            if (oweLines.length > 0) {
+                html += `<div class="trail-section-divider">What ${from} owes 👇</div>
+                    <div class="trail-receipt">`;
+                oweLines.forEach(l => {
+                    html += row('add', `"${l.desc}"`, `paid by ${l.paidBy}`, l.amount);
+                });
+                html += `</div>`;
+            }
+
+            // Section 2: Credits (what reduces the debt)
+            if (creditLines.length > 0) {
+                html += `<div class="trail-section-divider">${from} also paid for others, so it's reduced 👇</div>
+                    <div class="trail-receipt">`;
+                creditLines.forEach(l => {
+                    html += row('subtract', `"${l.desc}"`, `${from} paid — so others owe ${from} this back`, l.amount);
+                });
+                html += `</div>`;
+            }
+
+            // Net total
+            html += `<div class="trail-receipt" style="margin-top:6px;">`;
+            html += row('total', `${from}'s total debt`, '', netDebt);
+            html += `</div>`;
+
+            // Section 3: How the net splits across payees
+            const fromTransactions = allTransactions.filter(t => t.from === from);
+            if (fromTransactions.length > 1) {
+                html += `<div class="trail-section-divider">This gets split across ${fromTransactions.length} payments 👇</div>
+                    <div class="trail-receipt">`;
+                fromTransactions.forEach(t => {
+                    const isCurrent = t.to === to;
+                    html += `<div class="trail-receipt-row ${isCurrent ? 'total-row' : ''}">
+                        <span class="trail-badge ${isCurrent ? 'equals' : 'arrow'}">→</span>
+                        <div class="trail-row-content">
+                            <div class="trail-row-main">
+                                <span class="trail-row-label ${isCurrent ? 'total' : ''}">${from} pays ${t.to}${isCurrent ? ' &nbsp;<span class="trail-you-are-here">← this payment</span>' : ''}</span>
+                                <span class="trail-row-amount ${isCurrent ? 'total' : 'add'}">₹${t.amount.toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>`;
+                });
+                html += `</div>`;
+            } else {
+                html += `<div class="trail-receipt" style="margin-top:4px;">`;
+                html += row('total', `${from} pays ${to}`, '', amount);
+                html += `</div>`;
+            }
+
+            body.innerHTML = html;
+            modal.classList.add('active');
+        }
+
+        function hideTrailModal() {
+            document.getElementById('trail-modal').classList.remove('active');
         }
 
         function showPaybackModal(from, to, maxAmount) {
@@ -1155,6 +1323,12 @@
                     e.preventDefault();
                     document.getElementById('payback-confirm').click();
                 }
+            });
+
+            // Trail modal
+            document.getElementById('trail-modal-close').addEventListener('click', hideTrailModal);
+            document.getElementById('trail-modal').addEventListener('click', (e) => {
+                if (e.target === document.getElementById('trail-modal')) hideTrailModal();
             });
         }
 
